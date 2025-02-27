@@ -7,6 +7,7 @@ from pprint import pprint
 # Файл с данными
 mapping_file = "mapping.xlsx"
 sheet_name = "mapping"
+output_file_path = "tttest.xlsx"
 
 # Функция для загрузки данных в словарь
 def load_mapping_data():
@@ -52,14 +53,18 @@ if df.empty or not mapping_data:
 
 # Создаем макет с прокруткой
 input_fields = [
-    [sg.Text(f"{value}".ljust(60)), sg.InputText(default_text="", key=f"-INPUT_{key}-")]
+    [sg.InputText(default_text="", key=f"-INPUT_{key}-"), sg.Text(f"{value}".ljust(60))]
     if not str(key).startswith("P") else [sg.Text(f"{value}".ljust(60)), sg.Text("", size=(60,1))]
     for key, value in mapping_data.items()
 ]
 
 layout = [
-    [sg.Column(input_fields, size=(800, 500), scrollable=True, vertical_scroll_only=True)],  # Прокручиваемая область
-    [sg.Button("Сохранить", key="-SAVE-"), sg.Button("Выход", key="-EXIT-")]
+    [sg.Button("Открыть файл", key="-OPEN-", pad=((50, 10), (20, 20))),
+     sg.Text("", size=(10, 1)),
+     sg.Button("Сохранить", key="-SAVE-"),
+     sg.Text("", size=(30, 1)),
+     sg.Button("Выход", key="-EXIT-")],
+    [sg.Column(input_fields, size=(1000, 500), scrollable=True, vertical_scroll_only=True)]  # Прокручиваемая область
 ]
 
 # Создаем окно
@@ -70,6 +75,12 @@ while True:
 
     if event in (sg.WINDOW_CLOSED, "-EXIT-"):
         break
+    elif event == "-OPEN-":
+        output_file_path = None
+        output_file_path = sg.popup_get_file("Выберите файл",
+                                     file_types=(("Excel файлы", "*.xlsx"), ("Все файлы", "*.xlsx")))
+        if output_file_path:
+            sg.popup(f"Вы выбрали: {output_file_path}")
     elif event == "-SAVE-":
         # Собираем обновленные данные в словарь
         data_dict = {key: values[f"-INPUT_{key}-"] for key in mapping_data.keys() if f"-INPUT_{key}-" in values}
@@ -85,13 +96,35 @@ while True:
         # print("Processed Data:", result)
         # pprint(result)
 
+
+        wb = openpyxl.load_workbook(output_file_path)
+
         for i in result:
             # print(i)
             if not isinstance(i['cell'], float) and i["new_value"] != '':
                 cells = i["cell"].split(",")
                 for c in cells:
                     print(i["sheet_name"], 'cells:'+c.strip(), 'value:'+i["new_value"])
-        #             TODO: add logic
+
+                    sheet_name = i["sheet_name"]
+                    cell_address = c.strip()
+                    new_value = i["new_value"]
+
+                    # Проверяем, существует ли указанный лист
+                    if sheet_name in wb.sheetnames:
+                        ws = wb[sheet_name]
+                        try:
+                            ws[cell_address] = new_value  # Обновляем значение ячейки
+                        except AttributeError:
+                            print(sheet_name, cell_address, new_value)
+                            raise
+                    else:
+                        # print(f"Warning: Лист '{sheet_name}' не найден.")
+                        sg.popup_error(f"Warning: Лист '{sheet_name}' не найден.")
+
+        # Сохраняем изменения в файле
+        wb.save(output_file_path)
+        wb.close()
 
 
         sg.popup("Данные сохранены!", title="Успех")
