@@ -77,7 +77,6 @@ while True:
 
         print("Data Dictionary:", data_dict)
         print("DataFrame:\n", df)
-        print("cc")
 
 
         sg.popup("Данные сохранены!", title="Успех")
